@@ -9,12 +9,30 @@ interface ApiConfig {
   isReady: boolean;
 }
 
+/**
+ * 把 VITE_API_BASE_URL 归一化成 axios 需要的 baseURL。
+ *
+ * 静态托管（Cloudflare Pages / Workers）时前端和后端不同源，后端在 Railway 之类的
+ * 独立域名上，构建时用 VITE_API_BASE_URL 指定。允许只写域名
+ * （https://autoclip-api.up.railway.app），自动补 /api/v1；已经带版本后缀就原样使用。
+ * 未配置时保持相对路径 /api/v1：桌面端用动态端口，Docker / 本地开发走同源或 Vite 代理。
+ */
+export const normalizeApiBaseUrl = (raw: string | undefined | null): string => {
+  const trimmed = String(raw ?? '').trim().replace(/\/+$/, '');
+  if (!trimmed) return '';
+  return /\/api\/v\d+$/.test(trimmed) ? trimmed : `${trimmed}/api/v1`;
+};
+
+const ENV_BASE_URL = normalizeApiBaseUrl(import.meta.env.VITE_API_BASE_URL);
+// 固定 baseURL（绝对地址）意味着后端地址与页面地址无关，不需要等 Tauri 通知端口。
+const HAS_STATIC_BASE_URL = /^https?:\/\//.test(ENV_BASE_URL);
+
 class ApiConfigManager {
   private static instance: ApiConfigManager;
   private config: ApiConfig = {
-    baseUrl: '/api/v1',
+    baseUrl: ENV_BASE_URL || '/api/v1',
     port: 0,
-    isReady: false
+    isReady: HAS_STATIC_BASE_URL
   };
   private listeners: Array<(config: ApiConfig) => void> = [];
 
@@ -125,7 +143,8 @@ class ApiConfigManager {
    * 等待 API 就绪
    */
   async waitForReady(timeout: number = 30000): Promise<boolean> {
-    if (this.isReady()) {
+    // 固定绝对地址（例如 Cloudflare 前端 + Railway 后端）时没有“端口就绪”这回事，直接返回。
+    if (this.isReady() || /^https?:\/\//.test(this.config.baseUrl)) {
       return true;
     }
 

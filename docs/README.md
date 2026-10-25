@@ -20,6 +20,7 @@
 | 安装与第一次出片 | [安装指南](USER_INSTALLATION_GUIDE.md) | [Installation](USER_INSTALLATION_GUIDE.en.md) |
 | 费用、字幕、模型与排错 | [常见问题](FAQ.md) | [FAQ](FAQ.en.md) |
 | Docker 部署与备份 | [Docker](../DOCKER.md) | [Docker](DOCKER.en.md) |
+| 前端 Cloudflare + 后端 Railway（部署指南，阿拉伯语） | [النشر على Cloudflare و Railway](DEPLOY_CLOUDFLARE_RAILWAY_AR.md) | — |
 | 隐私说明 | [中文](PRIVACY.md) | [English](PRIVACY.en.md) |
 
 ## 开发与进阶

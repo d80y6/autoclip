@@ -1,0 +1,74 @@
+name: Deploy frontend (Cloudflare)
+
+# 把 frontend/dist 作为 Cloudflare Worker 静态资源发布（见 frontend/wrangler.jsonc）。
+# 需要先配置：
+#   Repository variables:  AUTOCLIP_API_BASE_URL = https://<railway-domain>/api/v1
+#                          （可选）VITE_PUBLIC_POSTHOG_KEY / VITE_PUBLIC_POSTHOG_HOST / VITE_PUBLIC_SENTRY_DSN
+#   Repository secrets:    CLOUDFLARE_API_TOKEN（Workers Scripts:Edit 权限）
+#                          CLOUDFLARE_ACCOUNT_ID
+# 说明：VITE_* 是构建期变量，改完要重新跑这个 workflow 才会生效。
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "frontend/**"
+      - ".github/workflows/deploy-cloudflare.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-cloudflare-frontend
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Build and deploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Check required configuration
+        env:
+          API_BASE_URL: ${{ vars.AUTOCLIP_API_BASE_URL }}
+        run: |
+          if [ -z "${API_BASE_URL}" ]; then
+            echo "::error::缺少仓库变量 AUTOCLIP_API_BASE_URL（例如 https://autoclip-api.up.railway.app/api/v1）"
+            exit 1
+          fi
+          if [ -z "${{ secrets.CLOUDFLARE_API_TOKEN }}" ]; then
+            echo "::error::缺少仓库 secret CLOUDFLARE_API_TOKEN"
+            exit 1
+          fi
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build
+        working-directory: frontend
+        env:
+          VITE_API_BASE_URL: ${{ vars.AUTOCLIP_API_BASE_URL }}
+          VITE_PUBLIC_POSTHOG_KEY: ${{ vars.VITE_PUBLIC_POSTHOG_KEY }}
+          VITE_PUBLIC_POSTHOG_HOST: ${{ vars.VITE_PUBLIC_POSTHOG_HOST }}
+          VITE_PUBLIC_SENTRY_DSN: ${{ vars.VITE_PUBLIC_SENTRY_DSN }}
+        run: |
+          npm run build
+          # 把注入到产物里的后端地址回显一次，部署后对不上时一眼就能看出来
+          grep -ro "https\?://[a-zA-Z0-9._:-]\+/api/v1" dist/assets | head -3 || true
+
+      - name: Deploy to Cloudflare Workers
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: frontend
+          command: deploy
