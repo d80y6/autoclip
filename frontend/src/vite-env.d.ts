@@ -11,6 +11,12 @@ interface ImportMetaEnv {
   readonly VITE_APP_VERSION?: string
   /** Dev-only flag overrides, `name=value` comma separated. Ignored in production builds. */
   readonly VITE_FLAGS?: string
+  /**
+   * 后端 API 绝对地址，用于前端静态托管（Cloudflare）而 API 在 Railway 的场景。
+   * 例：https://autoclip-api.up.railway.app/api/v1（只写域名时会自动补 /api/v1）。
+   * 留空则使用相对路径 /api/v1（桌面端 / Docker / 本地开发）。
+   */
+  readonly VITE_API_BASE_URL?: string
 }
 
 interface ImportMeta {

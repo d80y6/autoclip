@@ -207,5 +207,12 @@ def create_app(mode: str = "web") -> FastAPI:
                 status_code=500, 
                 content={"status": "error", "detail": str(e)}
             )
-    
+
+    # 可选：把前端构建产物挂到根路径，让「前后端同一个容器」的部署（例如全部放在 Railway）
+    # 也能直接用。默认关闭，不影响桌面端、Docker Compose 和「前端在 Cloudflare」的方案。
+    # 开启方式：AUTOCLIP_SERVE_FRONTEND_DIR=/app/frontend/dist（镜像里 npm run build 的产物）。
+    from backend.core.frontend_static import mount_frontend
+
+    mount_frontend(app)
+
     return app

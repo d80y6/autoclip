@@ -1,0 +1,18 @@
+{
+  // Cloudflare Workers 静态资源部署配置（`npm run deploy:cloudflare`）。
+  //
+  // 只把 frontend/dist 作为静态资源发布，不跑任何 Worker 代码：
+  //   - 应用使用 HashRouter（#/settings 之类），不需要服务端路由；
+  //   - API 请求直接打后端（Railway）的绝对地址，由 VITE_API_BASE_URL 在构建时注入，
+  //     不经过 Worker 代理，避免大文件上传撞到 Workers 的请求体大小限制。
+  //
+  // 自定义域名 / 路由在 Cloudflare 后台的 Worker 设置里加，不用改这个文件。
+  "$schema": "https://unpkg.com/wrangler@4/config-schema.json",
+  "name": "autoclip",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./dist",
+    // 直接访问未知路径时返回 index.html，而不是 Cloudflare 的 404 页面。
+    "not_found_handling": "single-page-application"
+  }
+}

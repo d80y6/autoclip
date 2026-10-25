@@ -1,0 +1,66 @@
+name: Deploy backend (Railway)
+
+# 用 Railway 的 project token 触发 `railway up`，构建 deploy/railway/Dockerfile。
+# 注意：Railway 只会自动识别仓库根目录的 Dockerfile，所以这个服务必须在 Variables 里设置
+#   RAILWAY_DOCKERFILE_PATH=/deploy/railway/Dockerfile
+# （Config-as-code 的 railway.json 已弃用，新服务不再读取，所以路径写在变量里。）
+#
+# 如果你更想用 Railway 自带的 GitHub 集成（push 即部署、无需 token），停用本 workflow 即可，
+# 但不要两者同时开，否则一次 push 会部署两遍。
+#
+# 需要先配置：
+#   Repository secrets:   RAILWAY_TOKEN（Railway 项目 → Settings → Tokens，project token）
+#   Repository variables: RAILWAY_SERVICE（服务名或 ID）、RAILWAY_ENVIRONMENT（默认 production）
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "backend/**"
+      - "deploy/railway/**"
+      - "requirements.txt"
+      - "init_database.py"
+      - ".github/workflows/deploy-railway.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-railway-backend
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: railway up
+    runs-on: ubuntu-latest
+    env:
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Check required configuration
+        env:
+          SERVICE: ${{ vars.RAILWAY_SERVICE }}
+        run: |
+          if [ -z "${RAILWAY_TOKEN}" ]; then
+            echo "::error::缺少仓库 secret RAILWAY_TOKEN（Railway project token）"
+            exit 1
+          fi
+          if [ -z "${SERVICE}" ]; then
+            echo "::error::缺少仓库变量 RAILWAY_SERVICE（Railway 服务名或 ID）"
+            exit 1
+          fi
+
+      - name: Install Railway CLI
+        run: npm install --global @railway/cli
+
+      - name: Deploy
+        env:
+          SERVICE: ${{ vars.RAILWAY_SERVICE }}
+          ENVIRONMENT: ${{ vars.RAILWAY_ENVIRONMENT || 'production' }}
+        run: railway up --ci --service="$SERVICE" --environment="$ENVIRONMENT"
