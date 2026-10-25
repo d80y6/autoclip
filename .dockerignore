@@ -31,7 +31,11 @@ env/
 ENV/
 
 # Node.js
+# 说明：.dockerignore 的模式锚定在上下文根目录，所以需要 **/ 才能覆盖 frontend/ 下的内容。
 node_modules/
+**/node_modules/
+frontend/dist/
+**/dist/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -73,6 +77,8 @@ docs/
 # them makes `docker build` fail with "/docker-entrypoint.sh: not found".
 !docker-entrypoint.sh
 !docker-dev-entrypoint.sh
+# Railway 镜像 COPY 的子目录入口脚本（上一行的 *.sh 只匹配根目录文件，这里显式放行更稳妥）。
+!deploy/railway/*.sh
 
 # Environment
 .env

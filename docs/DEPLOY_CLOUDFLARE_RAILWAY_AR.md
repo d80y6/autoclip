@@ -1,5 +1,9 @@
 # نشر AutoClip: الواجهة على Cloudflare والـ Backend على Railway
 
+> **هل تريد الأبسط؟** يمكن نشر الواجهة والباكند معاً على Railway في خدمة واحدة وبنفس النطاق،
+> بلا CORS ولا إعدادات متقاطعة: راجع [النشر الكامل على Railway](DEPLOY_RAILWAY_AR.md).
+> هذا الدليل مخصّص لتسريع تحميل الواجهة عبر شبكة Cloudflare مع فصل الباكند.
+
 هذا الدليل يشرح نشر AutoClip على الإنترنت بالمعمارية التالية:
 
 ```
@@ -39,7 +43,7 @@
 
 | الملف | الغرض |
 | --- | --- |
-| `deploy/railway/Dockerfile` | صورة Railway: باكند فقط + ffmpeg + مستخدم غير جذري |
+| `deploy/railway/Dockerfile` | صورة Railway كاملة: تبني الواجهة وتقدّمها من الباكند، + ffmpeg |
 | `deploy/railway/entrypoint.sh` | يصلح ملكية الـ Volume (root) ثم يهبط الصلاحيات إلى `autoclip` (uid 10001) |
 | `deploy/railway/start.sh` | تهيئة قاعدة البيانات، انتظار Redis، تشغيل Celery worker اختيارياً، ثم uvicorn على `$PORT` |
 | `frontend/wrangler.jsonc` | إعداد نشر `frontend/dist` كأصول ثابتة على Cloudflare Workers |
@@ -254,30 +258,14 @@ AUTOCLIP_ALLOWED_ORIGINS = https://autoclip.<account>.workers.dev,https://clips.
 
 ---
 
-## 5. بديل: تشغيل كل شيء على Railway (واجهة + باكند في حاوية واحدة)
+## 5. بديل: كل شيء على Railway
 
-مناسب إن أردت خدمة واحدة فقط. استخدم `Dockerfile` الموجود في الجذر (يبني الواجهة أيضاً)، ثم:
+إذا أردت خدمة واحدة بلا Cloudflare، فالدليل الكامل موجود في
+**[DEPLOY_RAILWAY_AR.md](DEPLOY_RAILWAY_AR.md)**: نفس صورة `deploy/railway` تبني الواجهة وتقدّمها من
+الباكند على نفس النطاق (`AUTOCLIP_SERVE_FRONTEND_DIR=/app/frontend/dist` مضبوط مسبقاً)، فلا حاجة إلى
+`VITE_API_BASE_URL` ولا إلى `AUTOCLIP_ALLOWED_ORIGINS`.
 
-| المتغير | القيمة |
-| --- | --- |
-| `RAILWAY_DOCKERFILE_PATH` | `Dockerfile` |
-| `AUTOCLIP_SERVE_FRONTEND_DIR` | `/app/frontend/dist` |
-| `AUTOCLIP_RUN_WORKER` | `true` |
-| `RAILWAY_RUN_UID` | `0` (الصورة الأصلية تعمل بمستخدم غير جذري والـ Volume مملوك لـ root) |
-| `REDIS_URL` | `${{Redis.REDIS_URL}}` |
-| `DATABASE_URL` | `sqlite:////app/data/autoclip.db` |
-| `AUTOCLIP_DATA_DIR` | `/app/data` |
-
-وبما أن هذه الصورة لا تشغّل Celery worker، عيّن **Start Command** في اللوحة:
-
-```bash
-celery -A backend.core.celery_app worker -l INFO -c 1 \
-  -Q celery,processing,video,notification,upload &
-exec python -m uvicorn backend.main:app --host 0.0.0.0 --port "${PORT:-8000}" --proxy-headers --forwarded-allow-ips='*'
-```
-
-بهذا الشكل تُقدَّم الواجهة من نفس النطاق، ولا حاجة لـ `AUTOCLIP_ALLOWED_ORIGINS` ولا لـ
-`VITE_API_BASE_URL` (يبقى المسار النسبي `/api/v1`).
+في هذه الحالة على Railway لا تضع `VITE_API_BASE_URL` (أو اتركه فارغاً): الواجهة ستستخدم `/api/v1` النسبي.
 
 ---
 
